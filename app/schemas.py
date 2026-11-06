@@ -21,11 +21,15 @@ ALL_TIME = Period(datetime.min, datetime.max)
 
 
 def month_period(value: str) -> Period:
+    error = ValueError("El mes debe ser una fecha válida con formato YYYY-MM")
     if not MONTH_PATTERN.fullmatch(value):
-        raise ValueError("El mes debe tener el formato YYYY-MM")
+        raise error
     year, month = int(value[:4]), int(value[5:])
     next_year, next_month = (year + 1, 1) if month == 12 else (year, month + 1)
-    return Period(datetime(year, month, 1), datetime(next_year, next_month, 1))
+    try:
+        return Period(datetime(year, month, 1), datetime(next_year, next_month, 1))
+    except ValueError:
+        raise error from None
 
 
 def _validate_month(value: str) -> str:
@@ -35,10 +39,12 @@ def _validate_month(value: str) -> str:
 
 def _rounded(decimal_places: int) -> PlainSerializer:
     exponent = Decimal(1).scaleb(-decimal_places)
-    return PlainSerializer(
-        lambda value: float(value.quantize(exponent, rounding=ROUND_HALF_UP)),
-        return_type=float,
-    )
+
+    def serialize(value: Decimal) -> float:
+        # Sumar 0.0 convierte -0.0 en 0.0.
+        return float(value.quantize(exponent, rounding=ROUND_HALF_UP)) + 0.0
+
+    return PlainSerializer(serialize, return_type=float)
 
 
 Month = Annotated[

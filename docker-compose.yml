@@ -29,6 +29,11 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", ".venv/bin/python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8000/openapi.json')"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
 
 volumes:
   pgdata:

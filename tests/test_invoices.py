@@ -1,3 +1,4 @@
+import math
 from decimal import Decimal
 
 import pytest
@@ -92,6 +93,13 @@ def test_injection_equal_to_consumption_has_no_ee2(client, conn):
     assert concepts["EE1"]["quantity_kwh"] == 20
     assert concepts["EE2"]["quantity_kwh"] == 0
     assert concepts["EE2"]["rate"] == 0
+
+
+def test_zero_ee2_is_not_negative_zero(client):
+    amount = concepts_of(invoice(client, 3222))["EE2"]["amount"]
+
+    assert amount == 0
+    assert math.copysign(1, amount) == 1
 
 
 def test_voltage_level_2_ignores_cdi(client, conn):

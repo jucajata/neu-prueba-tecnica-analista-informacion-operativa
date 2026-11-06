@@ -17,7 +17,9 @@ def test_december_rolls_over_to_next_year():
     assert period.end == datetime(2024, 1, 1)
 
 
-@pytest.mark.parametrize("value", ["2023-13", "2023-00", "2023-9", "23-09", "2023/09", "", "abc", "9999-12"])
+@pytest.mark.parametrize(
+    "value", ["2023-13", "2023-00", "0000-01", "2023-9", "23-09", "2023/09", "", "abc", "9999-12"]
+)
 def test_invalid_months_are_rejected(value):
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="YYYY-MM"):
         month_period(value)
