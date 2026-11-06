@@ -14,6 +14,9 @@ def create_pool() -> ConnectionPool:
         max_size=settings.pool_max_size,
         timeout=settings.pool_timeout_seconds,
         kwargs={"row_factory": dict_row},
+        # Una conexión inactiva puede morir sin que el pool lo note. Sin esta
+        # comprobación, la primera petición después de eso responde 503.
+        check=ConnectionPool.check_connection,
         open=False,
     )
 
