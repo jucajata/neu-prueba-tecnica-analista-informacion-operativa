@@ -1,0 +1,288 @@
+:root {
+  --bg: #000000;
+  --surface: #141414;
+  --raised: #262626;
+  --text: #ffffff;
+  --muted: #a2a2a2;
+  --line: #323234;
+  --lime: #9ecc14;
+  --lime-bright: #a6da00;
+  --lime-deep: #7da60c;
+  --cyan: #00b7d3;
+  --danger: #ef444c;
+  --danger-text: #fd8686;
+  --radius: 16px;
+  --code-font: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; scroll-padding-top: 4rem; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: 1.0625rem;
+  line-height: 1.55;
+}
+
+h1, h2, h3, p, ol, ul, fieldset, pre { margin: 0; padding: 0; }
+ol, ul { list-style: none; }
+fieldset { border: 0; min-width: 0; }
+
+h1, h2, h3 { font-family: "Sora", "Inter", system-ui, sans-serif; }
+h1, h2 { font-weight: 700; line-height: 1.12; letter-spacing: -0.02em; }
+h1 { font-size: clamp(2.1rem, 5vw, 3.6rem); text-wrap: balance; }
+h2 { font-size: clamp(1.6rem, 3vw, 2.2rem); text-wrap: balance; }
+h3 { font-size: 1.1rem; font-weight: 600; line-height: 1.3; }
+
+a { color: var(--lime); }
+code { font-family: var(--code-font); font-size: 0.88em; }
+:focus-visible { outline: 3px solid var(--cyan); outline-offset: 2px; }
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
+.wrap { width: min(100%, 76rem); margin-inline: auto; padding-inline: 1rem; }
+@media (min-width: 48rem) { .wrap { padding-inline: 2rem; } }
+
+/* Portada: la curva del mes y el registro del medidor */
+.hero { background: var(--bg); padding-block: 2.5rem 1.5rem; }
+.brand-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; margin-bottom: 2rem; }
+.brand-bar img { display: block; height: 1.75rem; width: auto; }
+.brand-bar p { padding-left: 1rem; border-left: 1px solid var(--line); color: #e5e5e5; font-size: 0.95rem; font-weight: 500; }
+@media (max-width: 36rem) { .brand-bar p { padding-left: 0; border-left: 0; } }
+.hero-top { display: grid; gap: 2rem; align-items: end; }
+.hero-copy > p { margin-top: 1rem; max-width: 58ch; color: var(--muted); }
+@media (min-width: 60rem) { .hero-top { grid-template-columns: 1fr auto; gap: 4rem; } }
+
+.service-switch { margin-top: 1.5rem; }
+.service-switch legend { padding: 0; font-size: 0.95rem; color: var(--muted); }
+#service-switch { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
+.service-option {
+  padding: 0.5rem 1.1rem; border: 1px solid var(--muted); border-radius: 999px;
+  background: var(--surface); color: var(--text); font: inherit; font-weight: 600; cursor: pointer;
+}
+.service-option[aria-pressed="true"] { background: var(--lime); border-color: var(--lime); color: #000; }
+
+.meter { justify-self: start; }
+.meter-label { font-size: 0.95rem; color: var(--muted); }
+.meter-digits { display: flex; gap: 3px; margin-top: 0.35rem; }
+.digit {
+  display: grid; place-items: center; width: clamp(2rem, 4.6vw, 3.1rem); height: clamp(3rem, 7vw, 4.6rem);
+  background: var(--raised); color: var(--text); border-radius: 8px;
+  font-size: clamp(1.7rem, 4.2vw, 2.7rem); font-weight: 600; font-variant-numeric: tabular-nums;
+}
+.digit.decimal { background: var(--lime); color: #000; }
+.meter-separator { align-self: flex-end; padding-inline: 2px; font-size: 1.6rem; font-weight: 700; }
+.meter-unit { margin-top: 0.25rem; text-align: right; font-size: 0.95rem; color: var(--muted); }
+
+.curve { margin-top: 1.5rem; height: clamp(14rem, 30vw, 20rem); touch-action: pan-y; }
+.curve svg { display: block; width: 100%; height: 100%; }
+.curve text { font-family: inherit; font-size: 13px; fill: var(--muted); }
+.curve .label-strong { fill: #fff; font-weight: 600; }
+
+.scrub { display: block; padding-inline: 12px; }
+.scrub input { width: 100%; margin: 0.25rem 0 0; accent-color: var(--lime); cursor: ew-resize; }
+.reading { margin-top: 0.75rem; min-height: 3.1em; max-width: 72ch; font-size: 1.05rem; }
+.reading strong { font-weight: 700; }
+
+/* Índice */
+.index { position: sticky; top: 0; z-index: 5; background: var(--surface); border-block: 1px solid var(--line); }
+.index .wrap { display: flex; gap: 1.25rem; overflow-x: auto; padding-block: 0.7rem; }
+.index a { flex: none; color: var(--text); font-size: 0.95rem; font-weight: 500; text-decoration: none; }
+.index a:hover { color: var(--lime); text-decoration: underline; }
+.index a:last-child { color: var(--lime); font-weight: 700; }
+
+/* Secciones */
+.section { padding-block: clamp(3rem, 7vw, 5.5rem); }
+.section-tint { background: var(--surface); }
+.section-grid { display: grid; gap: 1.5rem; }
+.section-body { min-width: 0; }
+.section-body > * + * { margin-top: 1.1rem; }
+.section-body > h3 { margin-top: 2.5rem; }
+.section-body > p { max-width: 70ch; }
+.lead { font-size: 1.15rem; max-width: 62ch; }
+.note { color: var(--muted); font-size: 0.97rem; }
+@media (min-width: 60rem) {
+  .section-grid { grid-template-columns: 15rem minmax(0, 1fr); gap: 3rem; }
+  .section-grid > h2 { position: sticky; top: 4.5rem; align-self: start; }
+  .section-grid-wide { grid-template-columns: 1fr; gap: 1.5rem; }
+  .section-grid-wide > h2 { position: static; }
+}
+
+.steps { counter-reset: step; }
+.steps li { counter-increment: step; position: relative; padding: 0 0 1.75rem 3.6rem; }
+.steps li::before {
+  content: counter(step); position: absolute; left: 0; top: -0.2rem; width: 2.5rem;
+  color: var(--lime); font-family: "Sora", "Inter", sans-serif; font-size: 2rem; font-weight: 700; line-height: 1.1;
+}
+.steps li:last-child { padding-bottom: 0; }
+.steps li > p { margin-top: 0.35rem; max-width: 66ch; color: #d4d4d4; }
+.steps pre { margin-block: 0.75rem; }
+
+pre {
+  overflow-x: auto; padding: 1rem; background: var(--surface); color: #e5e5e5;
+  border: 1px solid var(--line); border-radius: 12px; font-size: 0.85rem; line-height: 1.5;
+}
+pre code { font-size: inherit; }
+
+.table-scroll { overflow-x: auto; }
+table.data { width: 100%; border-collapse: collapse; font-size: 0.97rem; }
+.data th, .data td { padding: 0.55rem 0.75rem 0.55rem 0; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+.data thead th { font-weight: 600; border-bottom: 2px solid var(--text); }
+.data tfoot th, .data tfoot td { border-bottom: 0; font-weight: 700; font-size: 1.05rem; }
+.data .num, .invoice .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.data tbody th { font-weight: 600; }
+.worked th:first-child { min-width: 11rem; }
+
+.concept-tag { display: inline-flex; align-items: center; gap: 0.45rem; font-weight: 700; white-space: nowrap; }
+.concept-tag i { width: 0.8rem; height: 0.8rem; border-radius: 3px; background: var(--cyan); print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+.concept-tag.supply i { background: var(--lime); }
+
+.formula {
+  max-width: none; overflow-x: auto; padding: 1rem 0; border-block: 1px solid var(--line);
+  font-size: 1.1rem; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+
+/* Diagrama entidad-relación */
+.er-scroll { overflow-x: auto; background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius); }
+#er { min-width: 58rem; }
+#er svg { display: block; width: 100%; height: auto; }
+#er text { font-family: "Inter", system-ui, sans-serif; font-size: 13px; fill: var(--text); }
+#er .er-type { fill: var(--muted); font-size: 12px; font-family: var(--code-font); }
+#er .er-title { font-weight: 700; font-size: 14px; }
+#er .er-key { font-weight: 700; font-size: 11px; fill: var(--lime); }
+#er .er-card { font-size: 12px; font-weight: 700; }
+#er .er-muted { fill: var(--muted); font-size: 12px; }
+.er-notes { display: grid; gap: 0.8rem; max-width: 72ch; }
+
+.demo { display: block; width: 100%; max-width: 64rem; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+
+/* Consola y factura */
+.section-console { background: var(--surface); }
+.section-console h2 + .lead { margin-top: 0.9rem; }
+.endpoint-tabs { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1.75rem; }
+.endpoint-tab {
+  padding: 0.55rem 1rem; border: 1px solid var(--muted); border-radius: 999px; background: transparent;
+  color: var(--text); font: 600 0.88rem var(--code-font); cursor: pointer;
+}
+.endpoint-tab[aria-pressed="true"] { background: var(--lime); border-color: var(--lime); color: #000; }
+
+.console { display: grid; gap: 2rem; margin-top: 1.5rem; align-items: start; }
+.console > * { min-width: 0; }
+@media (min-width: 60rem) { .console { grid-template-columns: 22rem minmax(0, 1fr); gap: 3rem; } }
+
+.endpoint-summary { margin-bottom: 1.1rem; }
+.field { margin-bottom: 1.1rem; }
+.field label { display: block; font-weight: 700; }
+.field label code { font-size: 0.95em; }
+.field input, .field select {
+  display: block; width: 100%; margin-top: 0.3rem; padding: 0.65rem 0.9rem; border: 1px solid var(--muted);
+  border-radius: 12px; background: var(--bg); color: var(--text); font: 1rem var(--code-font);
+}
+.field small { display: block; margin-top: 0.3rem; color: var(--muted); font-size: 0.9rem; line-height: 1.4; }
+.submit {
+  width: 100%; padding: 0.8rem 1rem; border: 0; border-radius: 999px; background: var(--lime);
+  color: #000; font: inherit; font-weight: 700; cursor: pointer;
+}
+.submit:hover { background: var(--lime-bright); }
+.submit:disabled { opacity: 0.6; cursor: progress; }
+.presets { margin-top: 1.25rem; font-size: 0.95rem; }
+#endpoint-presets { display: flex; flex-wrap: wrap; gap: 0.25rem 0.9rem; margin-top: 0.2rem; }
+.preset { padding: 0.15rem 0; border: 0; background: none; color: var(--lime); font: inherit; text-decoration: underline; cursor: pointer; }
+
+.empty { padding: 2rem 0; color: var(--muted); max-width: 46ch; }
+
+/* La factura es un documento: va en hoja blanca, igual en pantalla y al imprimir */
+.invoice {
+  --text: #161617; --muted: #525252; --line: #e5e5e5;
+  padding: clamp(1.25rem, 4vw, 2.75rem); background: #fff; color: var(--text);
+  border-top: 8px solid var(--lime); border-radius: var(--radius);
+}
+.invoice-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.5rem 2rem; align-items: baseline; }
+.invoice-head h3 { font-size: 1.5rem; font-weight: 700; }
+.invoice-meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 0.75rem 1.5rem; margin-top: 1.5rem; }
+.invoice-meta dt { color: var(--muted); font-size: 0.9rem; }
+.invoice-meta dd { margin: 0; font-size: 1.1rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.invoice-table { margin-top: 1.5rem; }
+.invoice-total {
+  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 0.25rem 2rem;
+  margin-top: 1.5rem; padding-top: 1rem; border-top: 3px solid var(--text);
+}
+.invoice-total span { font-size: 1.1rem; font-weight: 700; }
+.invoice-total strong {
+  font-family: "Sora", "Inter", sans-serif; font-size: clamp(1.7rem, 4.2vw, 2.6rem); font-weight: 700;
+  font-variant-numeric: tabular-nums; line-height: 1.1;
+}
+.invoice-foot { margin-top: 1rem; color: var(--muted); font-size: 0.9rem; }
+.invoice-actions { margin-top: 1rem; }
+.print {
+  padding: 0.6rem 1.1rem; border: 1px solid var(--text); border-radius: 999px; background: #fff;
+  color: var(--text); font: inherit; font-weight: 600; cursor: pointer;
+}
+
+/* En pantallas angostas, cada concepto se apila para que el valor siempre sea visible */
+@media (max-width: 36rem) {
+  .invoice .data thead { display: none; }
+  .invoice .data tr { display: grid; grid-template-columns: auto auto 1fr; gap: 0.15rem 1rem; padding-block: 0.6rem; border-bottom: 1px solid var(--line); }
+  .invoice .data td { padding: 0; border: 0; font-size: 0.92rem; }
+  .invoice .data td:first-child { grid-column: 1 / -1; font-size: 0.97rem; }
+  .invoice .data td.num { text-align: left; }
+  .invoice .data td.num:last-child { text-align: right; font-weight: 700; }
+  .invoice .data td.num::before { content: attr(data-label); display: block; color: var(--muted); font-size: 0.8rem; }
+}
+
+.status { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin-bottom: 0.75rem; color: var(--muted); font-size: 0.95rem; }
+.status strong { color: var(--text); }
+.panel { padding: 1.25rem; background: var(--raised); border-radius: var(--radius); }
+.panel-error { box-shadow: inset 0 0 0 1px var(--danger); }
+.panel-error h3 { color: var(--danger-text); font-family: var(--code-font); font-size: 1rem; }
+.panel p, .panel ul { margin-top: 0.5rem; }
+.panel ul { display: grid; gap: 0.25rem; }
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 1.5rem; }
+.stat-grid h3 { margin-bottom: 0.4rem; }
+.stat-grid dl { margin: 0; display: grid; grid-template-columns: 1fr auto; gap: 0.15rem 1rem; }
+.stat-grid dt { color: #cbcbcd; }
+.stat-grid dd { margin: 0; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.load-chart { display: block; width: 100%; height: 11rem; margin-top: 0.75rem; touch-action: pan-y; }
+.load-readout { min-height: 1.6em; color: #cbcbcd; font-size: 0.95rem; }
+
+.raw { margin-top: 1rem; }
+.raw summary { cursor: pointer; font-weight: 600; }
+.raw pre { margin-top: 0.5rem; max-height: 22rem; overflow: auto; white-space: pre-wrap; word-break: break-word; }
+.copy { margin-top: 0.5rem; padding: 0.3rem 0.8rem; border: 1px solid var(--muted); border-radius: 999px; background: none; color: var(--text); font: inherit; font-size: 0.9rem; cursor: pointer; }
+
+/* Autor */
+.foot { padding-block: 3rem 2rem; background: var(--bg); border-top: 1px solid var(--line); }
+.author { display: flex; flex-wrap: wrap; align-items: center; gap: 1.5rem 2rem; }
+.author-photo { width: 8.5rem; height: 8.5rem; border-radius: 50%; object-fit: cover; border: 3px solid var(--lime); }
+.author-data { min-width: 0; flex: 1 1 18rem; }
+.author-data h2 { font-size: clamp(1.3rem, 2.4vw, 1.7rem); }
+.author-role { margin-top: 0.3rem; font-weight: 600; color: var(--lime); }
+.author-bio { margin-top: 0.3rem; max-width: 58ch; color: var(--muted); }
+.author-links { display: flex; flex-wrap: wrap; gap: 0.4rem 1.25rem; margin-top: 0.75rem; }
+.author-links a { font-weight: 600; overflow-wrap: anywhere; }
+.foot-note { margin-top: 2rem; color: var(--muted); font-size: 0.95rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
+
+/* Al imprimir solo sale la factura */
+@media print {
+  body { background: #fff; color: #000; }
+  .hero, .index, .foot, .section:not(#factura), #factura > .wrap > h2, #factura .lead,
+  .endpoint-tabs, #endpoint-form, .status, .raw, .invoice-actions { display: none; }
+  .section-console { padding: 0; background: none; }
+  #factura .wrap { width: 100%; padding: 0; }
+  .console { display: block; margin: 0; }
+  .invoice { padding: 0; border-top-width: 4px; border-radius: 0; }
+  .invoice .data thead { display: table-header-group; }
+  .invoice .data tr { display: table-row; }
+  .invoice .data td { display: table-cell; }
+}

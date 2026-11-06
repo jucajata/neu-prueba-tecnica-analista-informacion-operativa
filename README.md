@@ -17,8 +17,8 @@ docker compose up -d --build --wait
 
 El comando crea el esquema, carga los CSV de `data/` y deja disponible:
 
-- API: http://localhost:8000
-- Documentación interactiva: http://localhost:8000/docs
+- Página con la explicación del proceso, el diagrama entidad-relación y la consola para generar la factura: http://localhost:8000
+- Documentación interactiva de la API: http://localhost:8000/docs
 
 Primera consulta:
 

@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Facturación de energía</title>
+  <meta name="description" content="Prueba técnica para Neu Energy, de Grupo Erco: cómo se calcula la factura de un usuario que consume e inyecta energía, y una consola para generarla con la API.">
+  <link rel="icon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400..700&family=Sora:wght@600..700&display=swap">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="hero">
+    <div class="wrap brand-bar">
+      <img src="/static/logo-erco.svg" width="105" height="24" alt="Erco">
+      <p>Prueba técnica para Neu Energy, de Grupo Erco</p>
+    </div>
+    <div class="wrap hero-top">
+      <div class="hero-copy">
+        <h1>De las lecturas del medidor a la factura</h1>
+        <p>Un usuario con paneles solares toma energía de la red y le entrega la que le sobra. Mueve el mes para ver el momento en que su inyección alcanza su consumo: ese cruce define toda la factura.</p>
+        <fieldset class="service-switch">
+          <legend>Servicio de muestra</legend>
+          <div id="service-switch"></div>
+        </fieldset>
+      </div>
+      <div class="meter" aria-hidden="true">
+        <p class="meter-label">Inyección acumulada</p>
+        <div class="meter-digits" id="meter-digits"></div>
+        <p class="meter-unit">kWh</p>
+      </div>
+    </div>
+    <div class="wrap">
+      <div class="curve" id="curve"></div>
+      <label class="scrub">
+        <span class="sr-only">Hora del mes</span>
+        <input type="range" id="scrub" min="0" max="719" value="719">
+      </label>
+      <p class="reading" id="reading"></p>
+    </div>
+  </header>
+
+  <nav class="index" aria-label="Secciones">
+    <div class="wrap">
+      <a href="#proceso">Proceso</a>
+      <a href="#conceptos">Conceptos</a>
+      <a href="#regulacion">Regulación</a>
+      <a href="#modelo">Base de datos</a>
+      <a href="#demostracion">Demostración</a>
+      <a href="#factura">Generar la factura</a>
+    </div>
+  </nav>
+
+  <main>
+    <section class="section" id="proceso">
+      <div class="wrap section-grid">
+        <h2>Qué pasa al pedir una factura</h2>
+        <div class="section-body">
+          <p class="lead">La entrada es un servicio y un mes. La salida es una factura con cuatro conceptos y un total. Este es el recorrido completo de <code>POST /calculate-invoice</code>, en el orden real del código.</p>
+          <ol class="steps">
+            <li>
+              <h3>Valida la solicitud</h3>
+              <p><code>service_id</code> debe ser un entero positivo y <code>month</code> una fecha válida en formato YYYY-MM. Si algo falla, la API responde 422 sin tocar la base de datos.</p>
+            </li>
+            <li>
+              <h3>Convierte el mes en un rango</h3>
+              <p><code>2023-09</code> pasa a ser desde el 1 de septiembre hasta antes del 1 de octubre. Comparar con un rango permite usar los índices y no mezcla años.</p>
+            </li>
+            <li>
+              <h3>Comprueba que el servicio exista y suma sus lecturas</h3>
+              <p>Si no existe, responde 404 <code>SERVICE_NOT_FOUND</code>. Si existe pero no tiene lecturas en el mes, 404 <code>NO_DATA_FOR_PERIOD</code>. Con lecturas, obtiene el consumo y la inyección totales.</p>
+            </li>
+            <li>
+              <h3>Busca la tarifa</h3>
+              <p>La vista <code>service_tariffs</code> une el servicio con su tarifa por mercado y nivel de tensión. El <code>cdi</code> solo cuenta en el nivel 1: el servicio 3222 tiene <code>cdi</code> 101 y nivel 2, y su tarifa lo tiene vacío. Sin esta regla no encontraría tarifa.</p>
+            </li>
+            <li>
+              <h3>Calcula EA, EC y EE1</h3>
+              <p>Salen de los totales del mes y de la tarifa. No necesitan mirar cada hora.</p>
+            </li>
+            <li>
+              <h3>Calcula EE2 hora a hora</h3>
+              <p>Es el único concepto que depende del momento, porque el precio de bolsa cambia cada hora. Una sola consulta acumula la inyección en orden cronológico y separa lo que ya superó el consumo del mes:</p>
+              <pre><code>WITH hourly AS (
+    SELECT r.record_timestamp,
+           COALESCE(i.value, 0) AS injection_kwh,
+           SUM(COALESCE(i.value, 0)) OVER (ORDER BY r.record_timestamp) AS accumulated_kwh,
+           SUM(COALESCE(c.value, 0)) OVER () AS imported_kwh
+    ...
+),
+excess AS (
+    SELECT record_timestamp,
+           LEAST(injection_kwh, GREATEST(accumulated_kwh - imported_kwh, 0)) AS excess_kwh
+    FROM hourly
+)
+SELECT SUM(e.excess_kwh), SUM(e.excess_kwh * x.value) ...</code></pre>
+              <p>Antes del cruce la resta es negativa y queda en 0. En la hora del cruce cuenta solo lo que sobrepasa el consumo. Después cuenta toda la inyección de cada hora.</p>
+            </li>
+            <li>
+              <h3>Verifica el resultado</h3>
+              <p>La suma horaria debe ser igual a inyección menos consumo. Si no coincide, la API responde 500 <code>INCONSISTENT_DATA</code> antes que entregar una factura incorrecta.</p>
+            </li>
+            <li>
+              <h3>Entrega la factura</h3>
+              <p>Suma los cuatro conceptos con precisión completa y redondea solo en la respuesta: $ a 2 decimales, kWh a 3 y tarifas a 4. Si el total es positivo, paga el usuario. Si es negativo, es saldo a su favor.</p>
+            </li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section-tint" id="conceptos">
+      <div class="wrap section-grid">
+        <h2>Los cuatro conceptos</h2>
+        <div class="section-body">
+          <p class="lead">Valores reales del servicio <span id="concept-service"></span> en septiembre de 2023. Cambia de servicio en la parte superior para comparar.</p>
+          <div class="table-scroll">
+            <table class="data">
+              <thead>
+                <tr><th scope="col">Concepto</th><th scope="col">Cómo se calcula</th><th scope="col" class="num">kWh</th><th scope="col" class="num">Tarifa ($/kWh)</th><th scope="col" class="num">Valor ($)</th></tr>
+              </thead>
+              <tbody id="concept-rows"></tbody>
+              <tfoot id="concept-total"></tfoot>
+            </table>
+          </div>
+          <p class="note" id="concept-note"></p>
+
+          <h3>El ejemplo del enunciado, hora por hora</h3>
+          <p>Consumo del mes: 100 kWh. Inyección: 15 kWh cada hora durante 10 horas, 150 kWh en total. Los primeros 100 kWh inyectados son EE1; los otros 50 son EE2.</p>
+          <div class="table-scroll">
+            <table class="data worked">
+              <thead>
+                <tr><th scope="row">Hora</th><th scope="col" class="num">1 a 6</th><th scope="col" class="num">7</th><th scope="col" class="num">8</th><th scope="col" class="num">9</th><th scope="col" class="num">10</th><th scope="col" class="num">Suma</th></tr>
+              </thead>
+              <tbody>
+                <tr><th scope="row">Inyección acumulada</th><td class="num">15 a 90</td><td class="num">105</td><td class="num">120</td><td class="num">135</td><td class="num">150</td><td class="num"></td></tr>
+                <tr><th scope="row">Va a EE1</th><td class="num">90</td><td class="num">10</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num"><strong>100</strong></td></tr>
+                <tr><th scope="row">Va a EE2</th><td class="num">0</td><td class="num">5</td><td class="num">15</td><td class="num">15</td><td class="num">15</td><td class="num"><strong>50</strong></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>Mirar cada hora por separado daría otro resultado. Una hora puede inyectar más de lo que consume, pero solo es excedente si el acumulado del mes ya superó el consumo total. En el servicio 2256 la lectura por hora daría 582,77 kWh en lugar de 213,20.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="regulacion">
+      <div class="wrap section-grid">
+        <h2>Por qué EE2 resta</h2>
+        <div class="section-body">
+          <p class="lead">El enunciado no da el signo de EE2. Lo define la Resolución CREG 174 de 2021, artículo 26, literal a):</p>
+          <p class="formula">VE = (Exc1 − Imp) × CUv − [Exc1 × Cv] + Σ<sub>h=hx…H</sub> Exc2<sub>h</sub> × Pbolsa<sub>h</sub></p>
+          <p>Allí, <em>VE</em> mayor que cero es un ingreso para el usuario, y <em>Exc2 × Pbolsa</em> suma. La factura se lee desde el lado contrario, porque un valor positivo es lo que paga el usuario. Al cambiar el signo aparecen los conceptos:</p>
+          <p class="formula">−VE = Imp × CUv − Exc1 × CUv + Exc1 × Cv − Σ<sub>h</sub> Exc2<sub>h</sub> × Pbolsa<sub>h</sub></p>
+          <div class="table-scroll">
+            <table class="data">
+              <thead><tr><th scope="col">Término</th><th scope="col">Concepto</th><th scope="col">En la base de datos</th></tr></thead>
+              <tbody>
+                <tr><td>Imp × CUv</td><td>EA</td><td>Suma de <code>consumption.value</code> por <code>tariffs.cu</code></td></tr>
+                <tr><td>−Exc1 × CUv</td><td>EE1</td><td>min(inyección, consumo) por <code>tariffs.cu</code>, en negativo</td></tr>
+                <tr><td>Exc1 × Cv</td><td>EC</td><td><code>tariffs.c</code>; la norma lo aplica sobre Exc1</td></tr>
+                <tr><td>−Σ Exc2 × Pbolsa</td><td>EE2</td><td>Exceso de cada hora por <code>xm_data_hourly_per_agent.value</code>, en negativo</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <h3>Una diferencia con la norma</h3>
+          <p>El enunciado cobra EC sobre toda la inyección; la norma lo cobra solo sobre Exc1. Se implementó el enunciado, que es explícito, y la diferencia queda conciliada:</p>
+          <div class="table-scroll">
+            <table class="data">
+              <thead><tr><th scope="col">Servicio</th><th scope="col" class="num">−VE según la norma</th><th scope="col" class="num">Total de la prueba</th><th scope="col" class="num">Diferencia por EC</th></tr></thead>
+              <tbody>
+                <tr><td>3222</td><td class="num">17.196.464,27</td><td class="num">17.196.464,27</td><td class="num">0,00</td></tr>
+                <tr><td>2256</td><td class="num">−216.729,72</td><td class="num">−211.625,71</td><td class="num">5.104,01</td></tr>
+                <tr><td>2478</td><td class="num">−160.873,23</td><td class="num">−156.925,28</td><td class="num">3.947,95</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section-tint" id="modelo">
+      <div class="wrap section-grid section-grid-wide">
+        <h2>Diagrama entidad-relación</h2>
+        <div class="section-body">
+          <p class="lead">Seis tablas y una vista. Las tablas de color son las dos mediciones: azul lo que el usuario toma de la red y verde lo que le entrega.</p>
+          <div class="er-scroll" tabindex="0" role="region" aria-label="Diagrama entidad-relación, se desplaza horizontalmente">
+            <div id="er"></div>
+          </div>
+          <ul class="er-notes">
+            <li><strong><code>records</code></strong> es el centro: una fila por servicio y hora, con <code>UNIQUE (id_service, record_timestamp)</code> para impedir lecturas duplicadas. Esa restricción también es el índice que usan las consultas por servicio y mes.</li>
+            <li><strong><code>consumption</code> e <code>injection</code></strong> usan <code>id_record</code> como PK y FK, de modo que cada lectura tiene como máximo un valor de cada tipo.</li>
+            <li><strong><code>xm_data_hourly_per_agent</code></strong> guarda el precio de bolsa de cada hora. EE2 lo multiplica por el exceso de esa hora.</li>
+            <li><strong><code>tariffs</code></strong> usa <code>id_tariff</code> como PK. El diagrama original marcaba <code>id_market</code>, pero cada mercado tiene 5 tarifas. La unicidad real es <code>(id_market, voltage_level, cdi)</code>, con <code>NULLS NOT DISTINCT</code> porque <code>cdi</code> es NULL en los niveles 2 y 3.</li>
+            <li><strong><code>services</code> y <code>tariffs</code></strong> no tienen FK: un servicio de nivel 2 o 3 puede tener cualquier <code>cdi</code>. La relación vive en la vista <code>service_tariffs</code>.</li>
+            <li><strong>Dinero y energía</strong> usan <code>NUMERIC</code> en lugar del <code>float</code> del diagrama original, para evitar errores de redondeo binario.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="demostracion">
+      <div class="wrap section-grid section-grid-wide">
+        <h2>El flujo completo</h2>
+        <div class="section-body">
+          <p class="lead">Grabado en esta misma página contra la API real: lee el cruce en la curva, revisa las tablas y genera la factura.</p>
+          <video class="demo" src="/static/demo.mp4" poster="/static/demo-poster.jpg" controls muted loop playsinline preload="metadata">
+            <a href="/static/demo.mp4">Descargar el video</a>
+          </video>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section-console" id="factura">
+      <div class="wrap">
+        <h2>Generar la factura</h2>
+        <p class="lead">Cada formulario llama al endpoint real. La factura es el resultado de <code>POST /calculate-invoice</code>; los otros tres endpoints consultan sus partes y las estadísticas.</p>
+        <div class="endpoint-tabs" id="endpoint-tabs"></div>
+        <div class="console">
+          <form id="endpoint-form" novalidate>
+            <p class="endpoint-summary" id="endpoint-summary"></p>
+            <div id="endpoint-fields"></div>
+            <button type="submit" class="submit" id="endpoint-submit"></button>
+            <div class="presets">
+              <p>Probar con:</p>
+              <div id="endpoint-presets"></div>
+            </div>
+          </form>
+          <div class="result" aria-live="polite">
+            <div id="result-body"></div>
+            <details class="raw" id="raw-json" hidden>
+              <summary>Respuesta JSON</summary>
+              <pre><code id="raw-json-code"></code></pre>
+            </details>
+            <details class="raw">
+              <summary>Solicitud equivalente con curl</summary>
+              <pre><code id="curl-code"></code></pre>
+              <button type="button" class="copy" id="copy-curl">Copiar curl</button>
+            </details>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap">
+      <div class="author">
+        <img class="author-photo" src="/static/autor.jpg" width="160" height="160" alt="Foto de Juan Camilo Jaramillo Tascón">
+        <div class="author-data">
+          <h2>Juan Camilo Jaramillo Tascón</h2>
+          <p class="author-role">Electrical AI Data Engineer</p>
+          <p class="author-bio">Ingeniero electricista y de datos. Valle del Cauca, Colombia.</p>
+          <ul class="author-links">
+            <li><a href="https://jucajata.com">jucajata.com</a></li>
+            <li><a href="mailto:juancamilo@jucajata.com">juancamilo@jucajata.com</a></li>
+            <li><a href="https://www.linkedin.com/in/jucajata/">LinkedIn</a></li>
+            <li><a href="https://github.com/jucajata">GitHub</a></li>
+          </ul>
+        </div>
+      </div>
+      <p class="foot-note">Datos de muestra de septiembre de 2023. Especificación completa en <a href="/docs">/docs</a>.</p>
+    </div>
+  </footer>
+
+  <script src="/static/app.js" type="module"></script>
+</body>
+</html>

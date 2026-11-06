@@ -12,6 +12,12 @@ Se usa SQL directo con psycopg, sin ORM, porque la prueba evalúa la optimizaci�
 
 Cada endpoint toma la conexión dentro de su propio hilo, no en una dependencia con `yield`. Con la dependencia, cada petición necesitaba un segundo hilo: desde 50 peticiones simultáneas (40 hilos más 10 conexiones), las que esperaban una conexión dejaban sin hilos a las que ya la tenían y la API respondía 503. `tests/test_concurrency.py` cubre este caso con el pool real.
 
+## Página web
+
+`app/static/` contiene una página sin dependencias ni paso de compilación, servida por la misma API en `/`. Explica el cálculo, muestra el diagrama entidad-relación y permite llamar a los cuatro endpoints. El resultado final es la factura de `POST /calculate-invoice`, que se puede imprimir o guardar en PDF. Solo muestra datos que devuelve la API. Los colores y las tipografías (Sora e Inter) siguen el sitio de Erco: azul para lo que se toma de la red y verde para lo que se le entrega.
+
+La API no expone la serie horaria de un servicio, y la curva de la portada la necesita. Se exporta a `app/static/sample.json` con `scripts/export_sample.py`, y `tests/test_frontend.py` comprueba que coincida con la API.
+
 ## Interpretación del enunciado
 
 | Punto | Problema | Decisión |
@@ -53,7 +59,7 @@ Filtrar con `to_char(record_timestamp, 'YYYY-MM')` en lugar de un rango tomó 10
 
 - Todas las respuestas de error tienen la forma `{code, detail}`, documentada en [API](docs/API.md).
 - Antes de responder EE2, la cantidad horaria se compara con la mensual. Si no coinciden, se devuelve un error en lugar de una factura incorrecta.
-- La API arranca aunque la base de datos no esté disponible: responde 503 y se recupera sola cuando esta vuelve. Tras un reinicio de la base, cada conexión inactiva del pool puede causar un 503 antes de reponerse.
+- La API arranca aunque la base de datos no esté disponible: responde 503 y se recupera sola cuando esta vuelve. El pool comprueba cada conexión antes de entregarla, así que una conexión inactiva que murió no llega a una petición.
 - La validación ocurre antes de pedir una conexión, así que una solicitud inválida responde 422 aunque la base no esté disponible.
 
 ## Pruebas
@@ -73,7 +79,6 @@ Los tests de integración usan PostgreSQL real, porque la lógica crítica está
 
 - Agregar `valid_from` y `valid_to` a `tariffs`.
 - Reportar en la factura las horas sin lectura.
-- Validar las conexiones del pool antes de entregarlas.
 - Particionar `records` por mes cuando crezca el volumen.
 - Usar una vista materializada de carga horaria para `/system-load`.
 - Guardar facturas calculadas, para que sean inmutables y auditables.

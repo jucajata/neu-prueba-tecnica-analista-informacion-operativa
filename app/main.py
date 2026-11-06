@@ -2,11 +2,13 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from http import HTTPStatus
+from pathlib import Path
 
 import psycopg
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from psycopg_pool import PoolTimeout
 from starlette.exceptions import HTTPException
 
@@ -15,6 +17,8 @@ from app.errors import BillingError
 from app.routers import analytics, invoices
 
 logger = logging.getLogger(__name__)
+
+STATIC_DIR = Path(__file__).parent / "static"
 
 
 @asynccontextmanager
@@ -33,6 +37,12 @@ app = FastAPI(
 )
 app.include_router(invoices.router)
 app.include_router(analytics.router)
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+
+@app.get("/", include_in_schema=False)
+def home() -> FileResponse:
+    return FileResponse(STATIC_DIR / "index.html")
 
 
 def _error(status_code: int, code: str, detail: str, **extra: object) -> JSONResponse:
