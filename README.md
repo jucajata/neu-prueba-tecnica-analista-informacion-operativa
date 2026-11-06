@@ -4,6 +4,10 @@ API en FastAPI y PostgreSQL que calcula los conceptos de una factura mensual de 
 
 Prueba técnica para Erco-Neu.
 
+![Flujo completo de la página: curva del mes, diagrama entidad-relación y factura generada](docs/demo.gif)
+
+El video muestra la página que sirve la API. También está en [mejor calidad](app/static/demo.mp4).
+
 ## Requisitos
 
 - [Docker](https://docs.docker.com/get-docker/) con Docker Compose.
