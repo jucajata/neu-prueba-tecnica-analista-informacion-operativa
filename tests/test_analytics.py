@@ -40,6 +40,42 @@ def test_client_statistics_reports_peak_hours(client, conn):
     assert body["injection"]["peak_at"] == "2000-01-01T00:00:00"
 
 
+def test_client_statistics_of_a_service_without_injection_rows(client, conn):
+    insert_service(conn, 912, [("1", None), ("3", None)])
+
+    response = client.get("/client-statistics/912")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["consumption"]["total_kwh"] == 4
+    assert body["injection"] == {
+        "total_kwh": 0,
+        "average_kwh": 0,
+        "max_kwh": 0,
+        "peak_at": None,
+    }
+
+
+def test_client_statistics_has_no_peak_when_everything_is_zero(client, conn):
+    insert_service(conn, 913, [("1", "0"), ("3", "0")])
+
+    assert client.get("/client-statistics/913").json()["injection"]["peak_at"] is None
+
+
+def test_client_statistics_peak_ignores_hours_without_readings(client, conn):
+    insert_service(conn, 914, [(None, "1"), ("2", None), ("5", "1")])
+
+    assert client.get("/client-statistics/914").json()["consumption"]["peak_at"] == (
+        "2000-01-01T02:00:00"
+    )
+
+
+def test_system_load_excludes_the_first_hour_of_next_month(client, conn):
+    insert_service(conn, 915, [("1", "0"), ("1", "0")], first_hour=datetime(2000, 12, 31, 23))
+
+    assert client.get("/system-load", params={"month": "2000-12"}).json()["total_hours"] == 1
+
+
 def test_system_load_matches_csv(client, csv_load):
     response = client.get("/system-load", params={"month": "2023-09", "limit": 2000})
 

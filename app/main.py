@@ -1,12 +1,14 @@
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from http import HTTPStatus
 
 import psycopg
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from psycopg_pool import PoolTimeout
+from starlette.exceptions import HTTPException
 
 from app.db import create_pool
 from app.errors import BillingError
@@ -40,6 +42,13 @@ def _error(status_code: int, code: str, detail: str, **extra: object) -> JSONRes
 @app.exception_handler(BillingError)
 def handle_billing_error(_: Request, error: BillingError) -> JSONResponse:
     return _error(error.status_code, error.code, error.detail)
+
+
+@app.exception_handler(HTTPException)
+def handle_http_error(_: Request, error: HTTPException) -> JSONResponse:
+    response = _error(error.status_code, HTTPStatus(error.status_code).name, error.detail)
+    response.headers.update(error.headers or {})
+    return response
 
 
 @app.exception_handler(RequestValidationError)

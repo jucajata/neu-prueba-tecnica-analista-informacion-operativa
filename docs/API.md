@@ -65,7 +65,7 @@ Respuesta `200`:
 
 ## GET /client-statistics/{service_id}
 
-Devuelve estadísticas de consumo e inyección de un servicio. `month` es opcional; sin él, se usan todos los datos. `peak_at` es la hora del valor máximo.
+Devuelve estadísticas de consumo e inyección de un servicio. `month` es opcional; sin él, se usan todos los datos. `peak_at` es la hora del valor máximo, o `null` si el máximo es 0.
 
 ```bash
 curl 'http://localhost:8000/client-statistics/2256?month=2023-09'
@@ -94,7 +94,7 @@ Devuelve la carga por hora: el consumo sumado de todos los servicios.
 |-----------|-------------|-------------|
 | `month` | Todos los datos | Mes a consultar |
 | `limit` | 1000 | Horas por página, entre 1 y 5000 |
-| `offset` | 0 | Horas a omitir |
+| `offset` | 0 | Horas a omitir, hasta 2147483647 |
 
 `total_hours`, `average_load_kwh` y `peak` describen todo el periodo, no solo la página.
 
@@ -131,6 +131,8 @@ Todos los errores tienen la misma forma:
 |--------|--------|-------|
 | 404 | `SERVICE_NOT_FOUND` | El servicio no existe |
 | 404 | `NO_DATA_FOR_PERIOD` | No hay lecturas en el periodo |
+| 404 | `NOT_FOUND` | La ruta no existe |
+| 405 | `METHOD_NOT_ALLOWED` | La ruta no admite ese método |
 | 422 | `VALIDATION_ERROR` | Parámetros o cuerpo inválidos; incluye `errors` con el campo y el mensaje |
 | 422 | `TARIFF_NOT_FOUND` | Ninguna tarifa corresponde al mercado, nivel y cdi del servicio |
 | 500 | `INCONSISTENT_DATA` | El exceso horario no coincide con el mensual |

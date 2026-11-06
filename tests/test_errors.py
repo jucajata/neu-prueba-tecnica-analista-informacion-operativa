@@ -1,7 +1,9 @@
+from contextlib import contextmanager
+
 import psycopg
 import pytest
 
-from app.db import get_conn
+from app.db import get_pool
 from app.main import app
 from tests.conftest import insert_service
 
@@ -86,15 +88,52 @@ def test_system_load_month_without_data(client):
     assert_error(client.get("/system-load", params={"month": "2023-10"}), 404, "NO_DATA_FOR_PERIOD")
 
 
-@pytest.mark.parametrize("params", [{"limit": 0}, {"limit": 100000}, {"offset": -1}])
+@pytest.mark.parametrize(
+    "params", [{"limit": 0}, {"limit": 100000}, {"offset": -1}, {"offset": 2**63}, {"offset": 10**20}]
+)
 def test_system_load_invalid_pagination(client, params):
     assert_error(client.get("/system-load", params=params), 422, "VALIDATION_ERROR")
 
 
-def test_database_unavailable(client):
-    def unavailable():
-        raise psycopg.OperationalError("connection refused")
+def test_unknown_route_uses_the_error_format(client):
+    assert_error(client.get("/no-existe"), 404, "NOT_FOUND")
 
-    app.dependency_overrides[get_conn] = unavailable
+
+def test_wrong_method_uses_the_error_format(client):
+    response = client.post("/client-statistics/2256")
+
+    assert_error(response, 405, "METHOD_NOT_ALLOWED")
+    assert response.headers["allow"] == "GET"
+
+
+def test_malformed_body_uses_the_error_format(client):
+    response = client.post(
+        "/calculate-invoice", content=b"\xff\xfe", headers={"Content-Type": "application/json"}
+    )
+
+    assert response.status_code in (400, 422)
+    assert response.json()["code"] in ("BAD_REQUEST", "VALIDATION_ERROR")
+
+
+def test_database_unavailable(client):
+    class UnavailablePool:
+        @contextmanager
+        def connection(self):
+            raise psycopg.OperationalError("connection refused")
+            yield
+
+    app.dependency_overrides[get_pool] = UnavailablePool
 
     assert_error(client.post("/calculate-invoice", json=VALID_BODY), 503, "DATABASE_UNAVAILABLE")
+
+
+def test_validation_does_not_need_the_database(client):
+    class FailingPool:
+        def connection(self):
+            raise AssertionError("no debe pedir una conexión")
+
+    app.dependency_overrides[get_pool] = FailingPool
+
+    response = client.post("/calculate-invoice", json={"service_id": 2256, "month": "2023-13"})
+
+    assert_error(response, 422, "VALIDATION_ERROR")

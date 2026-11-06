@@ -1,15 +1,15 @@
 from typing import Annotated
 
-import psycopg
 from fastapi import APIRouter, Depends
+from psycopg_pool import ConnectionPool
 
 from app import billing
-from app.db import get_conn
+from app.db import get_pool
 from app.schemas import ConceptLine, ConceptResponse, ErrorResponse, InvoiceRequest, InvoiceResponse, month_period
 
 router = APIRouter(tags=["Facturación"])
 
-Connection = Annotated[psycopg.Connection, Depends(get_conn)]
+Pool = Annotated[ConnectionPool, Depends(get_pool)]
 
 ERROR_RESPONSES = {
     404: {"model": ErrorResponse, "description": "Servicio inexistente o mes sin lecturas"},
@@ -19,9 +19,10 @@ ERROR_RESPONSES = {
 
 
 @router.post("/calculate-invoice", response_model=InvoiceResponse, responses=ERROR_RESPONSES)
-def calculate_invoice(request: InvoiceRequest, conn: Connection) -> InvoiceResponse:
+def calculate_invoice(request: InvoiceRequest, pool: Pool) -> InvoiceResponse:
     """Calcula EA, EC, EE1 y EE2 de un servicio para un mes, y su total."""
-    invoice = billing.calculate_invoice(conn, request.service_id, month_period(request.month))
+    with pool.connection() as conn:
+        invoice = billing.calculate_invoice(conn, request.service_id, month_period(request.month))
     return InvoiceResponse(
         service_id=request.service_id,
         month=request.month,
@@ -36,12 +37,13 @@ def calculate_invoice(request: InvoiceRequest, conn: Connection) -> InvoiceRespo
     "/calculate-concept/{concept}", response_model=ConceptResponse, responses=ERROR_RESPONSES
 )
 def calculate_concept(
-    concept: billing.Concept, request: InvoiceRequest, conn: Connection
+    concept: billing.Concept, request: InvoiceRequest, pool: Pool
 ) -> ConceptResponse:
     """Calcula un solo concepto de la factura de un servicio para un mes."""
-    line = billing.calculate_concept(
-        conn, request.service_id, month_period(request.month), concept
-    )
+    with pool.connection() as conn:
+        line = billing.calculate_concept(
+            conn, request.service_id, month_period(request.month), concept
+        )
     return ConceptResponse(
         service_id=request.service_id,
         month=request.month,

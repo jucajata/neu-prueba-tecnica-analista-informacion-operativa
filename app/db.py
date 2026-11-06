@@ -1,6 +1,3 @@
-from collections.abc import Iterator
-
-import psycopg
 from fastapi import Request
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
@@ -21,6 +18,8 @@ def create_pool() -> ConnectionPool:
     )
 
 
-def get_conn(request: Request) -> Iterator[psycopg.Connection]:
-    with request.app.state.pool.connection() as connection:
-        yield connection
+async def get_pool(request: Request) -> ConnectionPool:
+    # Los endpoints toman la conexión dentro de su propio hilo. Si lo hiciera una
+    # dependencia con yield, FastAPI usaría un segundo hilo para el mismo request y
+    # los que esperan una conexión podrían dejar sin hilos a los que ya la tienen.
+    return request.app.state.pool

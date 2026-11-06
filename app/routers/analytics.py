@@ -1,10 +1,10 @@
 from typing import Annotated
 
-import psycopg
 from fastapi import APIRouter, Depends, Query
+from psycopg_pool import ConnectionPool
 
 from app import repository
-from app.db import get_conn
+from app.db import get_pool
 from app.errors import NoDataForPeriodError, ServiceNotFoundError
 from app.schemas import (
     ALL_TIME,
@@ -21,8 +21,10 @@ from app.schemas import (
 
 router = APIRouter(tags=["Análisis"])
 
-Connection = Annotated[psycopg.Connection, Depends(get_conn)]
+Pool = Annotated[ConnectionPool, Depends(get_pool)]
 OptionalMonth = Annotated[Month | None, Query(description="Mes YYYY-MM. Sin él, usa todos los datos.")]
+
+MAX_OFFSET = 2_147_483_647
 
 ERROR_RESPONSES = {
     404: {"model": ErrorResponse, "description": "Servicio inexistente o periodo sin lecturas"},
@@ -36,11 +38,12 @@ def _period(month: str | None) -> Period:
 
 
 def _energy_statistics(row: repository.Row, prefix: str) -> EnergyStatistics:
+    max_kwh = row[f"{prefix}_max"]
     return EnergyStatistics(
         total_kwh=row[f"{prefix}_total"],
         average_kwh=row[f"{prefix}_average"],
-        max_kwh=row[f"{prefix}_max"],
-        peak_at=row[f"{prefix}_peak_at"],
+        max_kwh=max_kwh,
+        peak_at=row[f"{prefix}_peak_at"] if max_kwh > 0 else None,
     )
 
 
@@ -50,13 +53,14 @@ def _energy_statistics(row: repository.Row, prefix: str) -> EnergyStatistics:
     responses=ERROR_RESPONSES,
 )
 def client_statistics(
-    service_id: int, conn: Connection, month: OptionalMonth = None
+    service_id: int, pool: Pool, month: OptionalMonth = None
 ) -> ClientStatisticsResponse:
     """Estadísticas de consumo e inyección de un servicio."""
-    if not repository.service_exists(conn, service_id):
-        raise ServiceNotFoundError(f"No existe el servicio {service_id}")
+    with pool.connection() as conn:
+        if not repository.service_exists(conn, service_id):
+            raise ServiceNotFoundError(f"No existe el servicio {service_id}")
+        row = repository.fetch_service_statistics(conn, service_id, _period(month))
 
-    row = repository.fetch_service_statistics(conn, service_id, _period(month))
     if row["hours"] == 0:
         raise NoDataForPeriodError(f"El servicio {service_id} no tiene lecturas en el periodo")
 
@@ -72,18 +76,19 @@ def client_statistics(
 
 @router.get("/system-load", response_model=SystemLoadResponse, responses=ERROR_RESPONSES)
 def system_load(
-    conn: Connection,
+    pool: Pool,
     month: OptionalMonth = None,
     limit: Annotated[int, Query(ge=1, le=5000)] = 1000,
-    offset: Annotated[int, Query(ge=0)] = 0,
+    offset: Annotated[int, Query(ge=0, le=MAX_OFFSET)] = 0,
 ) -> SystemLoadResponse:
     """Carga del sistema por hora: consumo sumado de todos los servicios."""
     period = _period(month)
-    summary = repository.fetch_system_load_summary(conn, period)
-    if summary["total_hours"] == 0:
-        raise NoDataForPeriodError("No hay lecturas en el periodo")
+    with pool.connection() as conn:
+        summary = repository.fetch_system_load_summary(conn, period)
+        if summary["total_hours"] == 0:
+            raise NoDataForPeriodError("No hay lecturas en el periodo")
+        rows = repository.fetch_system_load(conn, period, limit, offset)
 
-    rows = repository.fetch_system_load(conn, period, limit, offset)
     return SystemLoadResponse(
         month=month,
         total_hours=summary["total_hours"],

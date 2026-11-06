@@ -51,13 +51,13 @@ _HOURLY_EXCESS_VALUE = f"""
 _SERVICE_STATISTICS = f"""
     SELECT COUNT(*) AS hours,
            COALESCE(SUM(c.value), 0) AS consumption_total,
-           AVG(c.value) AS consumption_average,
-           MAX(c.value) AS consumption_max,
+           COALESCE(AVG(c.value), 0) AS consumption_average,
+           COALESCE(MAX(c.value), 0) AS consumption_max,
            (ARRAY_AGG(r.record_timestamp ORDER BY c.value DESC NULLS LAST, r.record_timestamp))[1]
                AS consumption_peak_at,
            COALESCE(SUM(i.value), 0) AS injection_total,
-           AVG(i.value) AS injection_average,
-           MAX(i.value) AS injection_max,
+           COALESCE(AVG(i.value), 0) AS injection_average,
+           COALESCE(MAX(i.value), 0) AS injection_max,
            (ARRAY_AGG(r.record_timestamp ORDER BY i.value DESC NULLS LAST, r.record_timestamp))[1]
                AS injection_peak_at
     {_SERVICE_RECORDS}

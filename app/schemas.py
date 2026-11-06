@@ -94,7 +94,7 @@ class EnergyStatistics(BaseModel):
     total_kwh: Energy
     average_kwh: Energy
     max_kwh: Energy
-    peak_at: datetime
+    peak_at: datetime | None = Field(description="Hora del máximo. Es null si el máximo es 0.")
 
 
 class ClientStatisticsResponse(BaseModel):

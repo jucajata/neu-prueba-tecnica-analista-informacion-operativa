@@ -1,4 +1,5 @@
 import math
+from datetime import datetime
 from decimal import Decimal
 
 import pytest
@@ -100,6 +101,51 @@ def test_zero_ee2_is_not_negative_zero(client):
 
     assert amount == 0
     assert math.copysign(1, amount) == 1
+
+
+def test_excess_follows_time_order_not_record_ids(client, conn):
+    # El acumulado solo supera los 15 kWh de consumo en la tercera hora, con precio 102.
+    insert_service(conn, 906, [("5", "5"), ("5", "0"), ("5", "20")], descending_ids=True)
+
+    concepts = concepts_of(invoice(client, 906, "2000-01"))
+
+    assert concepts["EE2"]["quantity_kwh"] == 10
+    assert concepts["EE2"]["amount"] == -1020
+
+
+def test_month_excludes_the_first_hour_of_next_month(client, conn):
+    last_hour = datetime(2000, 12, 31, 23)
+    insert_service(conn, 907, [("10", "0"), ("100", "0")], first_hour=last_hour)
+
+    assert concepts_of(invoice(client, 907, "2000-12"))["EA"]["quantity_kwh"] == 10
+    assert concepts_of(invoice(client, 907, "2001-01"))["EA"]["quantity_kwh"] == 100
+
+
+def test_accumulated_injection_restarts_every_month(client, conn):
+    insert_service(conn, 908, [("1", "5"), ("1", "5")], first_hour=datetime(2000, 12, 31, 23))
+
+    december = concepts_of(invoice(client, 908, "2000-12"))
+    january = concepts_of(invoice(client, 908, "2001-01"))
+
+    assert december["EE2"]["quantity_kwh"] == january["EE2"]["quantity_kwh"] == 4
+
+
+def test_service_without_injection_rows_is_billed(client, conn):
+    insert_service(conn, 909, [("10", None), ("10", None)])
+
+    concepts = concepts_of(invoice(client, 909, "2000-01"))
+
+    assert concepts["EA"]["quantity_kwh"] == 20
+    assert concepts["EC"]["quantity_kwh"] == 0
+
+
+def test_service_without_consumption_rows_is_billed(client, conn):
+    insert_service(conn, 910, [(None, "10"), (None, "10")])
+
+    concepts = concepts_of(invoice(client, 910, "2000-01"))
+
+    assert concepts["EC"]["quantity_kwh"] == 20
+    assert concepts["EE2"]["quantity_kwh"] == 20
 
 
 def test_voltage_level_2_ignores_cdi(client, conn):

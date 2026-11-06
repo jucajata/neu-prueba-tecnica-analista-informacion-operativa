@@ -10,6 +10,8 @@ Tres capas con responsabilidades separadas:
 
 Se usa SQL directo con psycopg, sin ORM, porque la prueba evalúa la optimización de consultas y el cálculo de EE2 depende de funciones de ventana. Los endpoints son síncronos y usan un pool de conexiones: la carga la hace PostgreSQL y FastAPI los ejecuta en su pool de hilos.
 
+Cada endpoint toma la conexión dentro de su propio hilo, no en una dependencia con `yield`. Con la dependencia, cada petición necesitaba un segundo hilo: desde 50 peticiones simultáneas (40 hilos más 10 conexiones), las que esperaban una conexión dejaban sin hilos a las que ya la tenían y la API respondía 503. `tests/test_concurrency.py` cubre este caso con el pool real.
+
 ## Interpretación del enunciado
 
 | Punto | Problema | Decisión |
@@ -51,11 +53,12 @@ Filtrar con `to_char(record_timestamp, 'YYYY-MM')` en lugar de un rango tomó 10
 
 - Todas las respuestas de error tienen la forma `{code, detail}`, documentada en [API](docs/API.md).
 - Antes de responder EE2, la cantidad horaria se compara con la mensual. Si no coinciden, se devuelve un error en lugar de una factura incorrecta.
-- La API arranca aunque la base de datos no esté disponible: responde 503 y se recupera sola cuando esta vuelve.
+- La API arranca aunque la base de datos no esté disponible: responde 503 y se recupera sola cuando esta vuelve. Tras un reinicio de la base, cada conexión inactiva del pool puede causar un 503 antes de reponerse.
+- La validación ocurre antes de pedir una conexión, así que una solicitud inválida responde 422 aunque la base no esté disponible.
 
 ## Pruebas
 
-Los tests de integración usan PostgreSQL real, porque la lógica crítica está en SQL. Cada test corre en una transacción que se revierte. Los valores esperados se calcularon aparte, directamente de los CSV. También se verificó que romper a propósito las reglas críticas (signo de EE2, exceso por hora, EE1, tarifa de EC y límites del mes) hace fallar la suite.
+Los tests de integración usan PostgreSQL real, porque la lógica crítica está en SQL. Cada test corre en una transacción que se revierte. Los valores esperados se calcularon aparte, directamente de los CSV. También se verificó que romper a propósito las reglas críticas (signo de EE2, exceso por hora, orden cronológico, EE1, tarifa de EC, límites del mes y lecturas faltantes) hace fallar la suite.
 
 ## Limitaciones
 
@@ -63,11 +66,14 @@ Los tests de integración usan PostgreSQL real, porque la lógica crítica está
 - EC sigue el enunciado, que difiere de la regulación cuando la inyección supera al consumo. Ver [conciliación](docs/FORMULAS.md#conciliación-con-la-regulación).
 - La regulación distingue por capacidad instalada, un dato que no está en el modelo. Se asume el literal a).
 - `/system-load` ejecuta dos consultas sobre todas las filas del periodo: una para el resumen y otra para la página.
+- Una hora sin fila en `consumption` o `injection` cuenta como 0 kWh. La API no avisa si faltan lecturas, por lo que una factura con lecturas incompletas no se distingue de una completa.
 - La API no tiene autenticación.
 
 ## Mejoras futuras
 
 - Agregar `valid_from` y `valid_to` a `tariffs`.
+- Reportar en la factura las horas sin lectura.
+- Validar las conexiones del pool antes de entregarlas.
 - Particionar `records` por mes cuando crezca el volumen.
 - Usar una vista materializada de carga horaria para `/system-load`.
 - Guardar facturas calculadas, para que sean inmutables y auditables.

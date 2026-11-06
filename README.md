@@ -51,7 +51,7 @@ uv sync
 uv run pytest
 ```
 
-Si cambiaste `DB_PORT`, indica la conexión con `DATABASE_URL`, como en `.env.example`. Los tests revierten sus cambios, así que no alteran los datos.
+Si cambiaste `DB_PORT`, exporta `DATABASE_URL` en la terminal antes de ejecutar los tests; el formato está en `.env.example`. Los tests revierten sus cambios, así que no alteran los datos.
 
 ## Ejecutar la API fuera de Docker
 
